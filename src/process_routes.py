@@ -69,6 +69,7 @@ def main():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     ensure_table(conn)
+    ensure_failed_table(conn)
 
     # 1. Select delayed orders (estimated < actual delivery)
     delayed_rows = conn.execute(
@@ -105,12 +106,11 @@ def main():
 
     # 3. Determine how many pairs have already been processed
     processed_pairs = set(
-        conn.execute(
+        (row["seller_zip_code"], row["customer_zip_code"])
+        for row in conn.execute(
             "SELECT DISTINCT seller_zip_code, customer_zip_code FROM order_distances"
         ).fetchall()
     )
-    processed_count = len(processed_pairs)
-    remaining_quota = max(RATE_LIMIT - processed_count, 0)
 
     # 4. Order pairs by average delay severity (largest mean delay first)
     def pair_average_delay(pair):
@@ -135,8 +135,6 @@ def main():
             print("Reached daily API call limit; stopping processing.")
             break
         attempted_calls += 1
-        if processed_this_run >= remaining_quota:
-            break
         if pair in processed_pairs:
             continue
 
@@ -229,7 +227,7 @@ def main():
               f"{distance_km:.2f} km, {duration_min:.1f} min")
 
     print(f"Finished: {processed_this_run} new pairs processed "
-          f"(remaining quota: {remaining_quota - processed_this_run})")
+          f"(remaining quota: {RATE_LIMIT - attempted_calls})")
 
 if __name__ == "__main__":
     main()
