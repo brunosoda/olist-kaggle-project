@@ -1,2 +1,12 @@
 API token kaggle.txt
 data/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# dbt
+logs/
+olist_dbt/target/
+
+.env
